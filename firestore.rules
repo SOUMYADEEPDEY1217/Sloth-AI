@@ -1,0 +1,609 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Reusable Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function parentUserExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+        get(/databases/$(database)/documents/users/$(userId)).data.ownerId == request.auth.uid;
+    }
+
+    // 3. Entity Validation Blueprints (Synchronized with firebase-blueprint.json)
+    function isValidUserWorkspaceProfile(data, userId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'displayName',
+          'backendUrl',
+          'ollamaBaseUrl',
+          'modelName',
+          'theme',
+          'defaultSummaryLength',
+          'retainActivityLog',
+          'maxActivityEntries',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'displayName',
+          'backendUrl',
+          'ollamaBaseUrl',
+          'modelName',
+          'theme',
+          'defaultSummaryLength',
+          'retainActivityLog',
+          'maxActivityEntries',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId.size() >= 1 &&
+        data.ownerId.size() <= 128 &&
+        data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.ownerId == userId &&
+        data.displayName is string &&
+        data.displayName.size() >= 1 &&
+        data.displayName.size() <= 120 &&
+        data.backendUrl is string &&
+        data.backendUrl.size() <= 300 &&
+        data.ollamaBaseUrl is string &&
+        data.ollamaBaseUrl.size() >= 1 &&
+        data.ollamaBaseUrl.size() <= 300 &&
+        data.modelName is string &&
+        data.modelName.size() >= 1 &&
+        data.modelName.size() <= 120 &&
+        data.theme is string &&
+        data.theme.size() <= 16 &&
+        data.theme in ['dark', 'light'] &&
+        data.defaultSummaryLength is string &&
+        data.defaultSummaryLength.size() <= 16 &&
+        data.defaultSummaryLength in ['short', 'balanced', 'detailed'] &&
+        data.retainActivityLog is bool &&
+        data.maxActivityEntries is number &&
+        data.maxActivityEntries >= 10 &&
+        data.maxActivityEntries <= 500 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUserTask(data, userId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'title',
+          'description',
+          'deadline',
+          'priority',
+          'prioritySource',
+          'sourceEvidence',
+          'completed',
+          'sourceOrigin',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'title',
+          'description',
+          'deadline',
+          'priority',
+          'prioritySource',
+          'sourceEvidence',
+          'completed',
+          'sourceOrigin',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId.size() >= 1 &&
+        data.ownerId.size() <= 128 &&
+        data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.ownerId == userId &&
+        data.title is string &&
+        data.title.size() >= 1 &&
+        data.title.size() <= 300 &&
+        data.description is string &&
+        data.description.size() <= 2000 &&
+        data.deadline is string &&
+        data.deadline.size() <= 160 &&
+        data.priority is string &&
+        data.priority.size() <= 20 &&
+        data.priority in ['high', 'medium', 'low', 'unspecified'] &&
+        data.prioritySource is string &&
+        data.prioritySource.size() <= 20 &&
+        data.prioritySource in ['explicit', 'inferred', 'none'] &&
+        data.sourceEvidence is string &&
+        data.sourceEvidence.size() <= 600 &&
+        data.completed is bool &&
+        data.sourceOrigin is string &&
+        data.sourceOrigin.size() <= 30 &&
+        data.sourceOrigin in ['live-ollama', 'manual', 'demo-sample'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUserStagedFile(data, userId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'originalName',
+          'sourceRelativePath',
+          'extension',
+          'sizeBytes',
+          'suggestedCategory',
+          'suggestedFolder',
+          'suggestedFilename',
+          'reasoning',
+          'approved',
+          'status',
+          'isDemoData',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'originalName',
+          'sourceRelativePath',
+          'extension',
+          'sizeBytes',
+          'suggestedCategory',
+          'suggestedFolder',
+          'suggestedFilename',
+          'reasoning',
+          'approved',
+          'status',
+          'isDemoData',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId.size() >= 1 &&
+        data.ownerId.size() <= 128 &&
+        data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.ownerId == userId &&
+        data.originalName is string &&
+        data.originalName.size() >= 1 &&
+        data.originalName.size() <= 260 &&
+        data.sourceRelativePath is string &&
+        data.sourceRelativePath.size() >= 1 &&
+        data.sourceRelativePath.size() <= 400 &&
+        data.extension is string &&
+        data.extension.size() <= 32 &&
+        data.sizeBytes is number &&
+        data.sizeBytes >= 0 &&
+        data.suggestedCategory is string &&
+        data.suggestedCategory.size() >= 1 &&
+        data.suggestedCategory.size() <= 100 &&
+        data.suggestedFolder is string &&
+        data.suggestedFolder.size() >= 1 &&
+        data.suggestedFolder.size() <= 260 &&
+        data.suggestedFilename is string &&
+        data.suggestedFilename.size() >= 1 &&
+        data.suggestedFilename.size() <= 260 &&
+        data.reasoning is string &&
+        data.reasoning.size() <= 600 &&
+        data.approved is bool &&
+        data.status is string &&
+        data.status.size() <= 32 &&
+        data.status in ['pending', 'preview-validated', 'applied'] &&
+        data.isDemoData is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUserSummary(data, userId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'title',
+          'executiveSummary',
+          'keyPointsText',
+          'notableTermsText',
+          'uncertaintyNotes',
+          'length',
+          'sourceWordCount',
+          'summaryWordCount',
+          'sourceType',
+          'modelUsed',
+          'generatedAt',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'title',
+          'executiveSummary',
+          'keyPointsText',
+          'notableTermsText',
+          'uncertaintyNotes',
+          'length',
+          'sourceWordCount',
+          'summaryWordCount',
+          'sourceType',
+          'modelUsed',
+          'generatedAt',
+          'createdAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId.size() >= 1 &&
+        data.ownerId.size() <= 128 &&
+        data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.ownerId == userId &&
+        data.title is string &&
+        data.title.size() >= 1 &&
+        data.title.size() <= 300 &&
+        data.executiveSummary is string &&
+        data.executiveSummary.size() >= 1 &&
+        data.executiveSummary.size() <= 5000 &&
+        data.keyPointsText is string &&
+        data.keyPointsText.size() <= 4000 &&
+        data.notableTermsText is string &&
+        data.notableTermsText.size() <= 1000 &&
+        data.uncertaintyNotes is string &&
+        data.uncertaintyNotes.size() <= 1000 &&
+        data.length is string &&
+        data.length.size() <= 16 &&
+        data.length in ['short', 'balanced', 'detailed'] &&
+        data.sourceWordCount is number &&
+        data.sourceWordCount >= 0 &&
+        data.summaryWordCount is number &&
+        data.summaryWordCount >= 0 &&
+        data.sourceType is string &&
+        data.sourceType.size() <= 24 &&
+        data.sourceType in ['live-ollama', 'sample-preview'] &&
+        data.modelUsed is string &&
+        data.modelUsed.size() >= 1 &&
+        data.modelUsed.size() <= 120 &&
+        data.generatedAt is string &&
+        data.generatedAt.size() >= 1 &&
+        data.generatedAt.size() <= 64 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidUserBriefing(data, userId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'conciseSummary',
+          'importantInfoText',
+          'actionItemsText',
+          'deadlinesText',
+          'questionsText',
+          'sourceMode',
+          'modelUsed',
+          'inputWordCount',
+          'generatedAt',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'conciseSummary',
+          'importantInfoText',
+          'actionItemsText',
+          'deadlinesText',
+          'questionsText',
+          'sourceMode',
+          'modelUsed',
+          'inputWordCount',
+          'generatedAt',
+          'createdAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId.size() >= 1 &&
+        data.ownerId.size() <= 128 &&
+        data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.ownerId == userId &&
+        data.conciseSummary is string &&
+        data.conciseSummary.size() >= 1 &&
+        data.conciseSummary.size() <= 4000 &&
+        data.importantInfoText is string &&
+        data.importantInfoText.size() <= 4000 &&
+        data.actionItemsText is string &&
+        data.actionItemsText.size() <= 4000 &&
+        data.deadlinesText is string &&
+        data.deadlinesText.size() <= 2000 &&
+        data.questionsText is string &&
+        data.questionsText.size() <= 2000 &&
+        data.sourceMode is string &&
+        data.sourceMode.size() <= 24 &&
+        data.sourceMode in ['live-ollama', 'demo-sample'] &&
+        data.modelUsed is string &&
+        data.modelUsed.size() >= 1 &&
+        data.modelUsed.size() <= 120 &&
+        data.inputWordCount is number &&
+        data.inputWordCount >= 0 &&
+        data.generatedAt is string &&
+        data.generatedAt.size() >= 1 &&
+        data.generatedAt.size() <= 64 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidUserActivity(data, userId) {
+      return data.keys().hasAll([
+          'ownerId',
+          'type',
+          'status',
+          'description',
+          'sourceMode',
+          'timestampIso',
+          'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId',
+          'type',
+          'status',
+          'description',
+          'sourceMode',
+          'timestampIso',
+          'createdAt'
+        ]) &&
+        data.ownerId is string &&
+        data.ownerId.size() >= 1 &&
+        data.ownerId.size() <= 128 &&
+        data.ownerId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.ownerId == request.auth.uid &&
+        data.ownerId == userId &&
+        data.type is string &&
+        data.type.size() <= 32 &&
+        data.type in [
+          'summarize',
+          'extract_tasks',
+          'organize_files',
+          'daily_briefing',
+          'connection_test',
+          'model_pull',
+          'settings_update',
+          'system'
+        ] &&
+        data.status is string &&
+        data.status.size() <= 16 &&
+        data.status in ['success', 'warning', 'error', 'info'] &&
+        data.description is string &&
+        data.description.size() >= 1 &&
+        data.description.size() <= 1000 &&
+        data.sourceMode is string &&
+        data.sourceMode.size() <= 24 &&
+        data.sourceMode in ['live-ollama', 'demo-sample', 'system'] &&
+        data.timestampIso is string &&
+        data.timestampIso.size() >= 1 &&
+        data.timestampIso.size() <= 64 &&
+        data.createdAt is timestamp;
+    }
+
+    // 4. Collection Rules: /users/{userId}
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserWorkspaceProfile(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidUserWorkspaceProfile(incoming(), userId) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName',
+            'backendUrl',
+            'ollamaBaseUrl',
+            'modelName',
+            'theme',
+            'defaultSummaryLength',
+            'retainActivityLog',
+            'maxActivityEntries',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isOwner(userId) && isValidId(userId) && existing().ownerId == request.auth.uid;
+
+      // Subcollection: /users/{userId}/tasks/{taskId}
+      match /tasks/{taskId} {
+        allow get: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(taskId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+
+        allow list: if isOwner(userId) &&
+          existing().ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(taskId) &&
+          isValidUserTask(incoming(), userId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(taskId) &&
+          isValidUserTask(incoming(), userId) &&
+          existing().ownerId == request.auth.uid &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            // Action 1: Toggle completion status
+            incoming().diff(existing()).affectedKeys().hasOnly(['completed', 'updatedAt']) ||
+            // Action 2: Edit task details
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'title',
+              'description',
+              'deadline',
+              'priority',
+              'updatedAt'
+            ])
+          ) &&
+          parentUserExists(userId);
+
+        allow delete: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(taskId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+      }
+
+      // Subcollection: /users/{userId}/stagedFiles/{fileId}
+      match /stagedFiles/{fileId} {
+        allow get: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(fileId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+
+        allow list: if isOwner(userId) &&
+          existing().ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(fileId) &&
+          isValidUserStagedFile(incoming(), userId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(fileId) &&
+          isValidUserStagedFile(incoming(), userId) &&
+          existing().ownerId == request.auth.uid &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            // Action 1: Toggle approval or update status (when not yet applied)
+            (existing().status != 'applied' &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'approved',
+                'status',
+                'suggestedFolder',
+                'suggestedFilename',
+                'sourceRelativePath',
+                'updatedAt'
+              ]))
+          ) &&
+          parentUserExists(userId);
+
+        allow delete: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(fileId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+      }
+
+      // Subcollection: /users/{userId}/summaries/{summaryId}
+      match /summaries/{summaryId} {
+        allow get: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(summaryId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+
+        allow list: if isOwner(userId) &&
+          existing().ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(summaryId) &&
+          isValidUserSummary(incoming(), userId) &&
+          incoming().createdAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if false;
+
+        allow delete: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(summaryId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+      }
+
+      // Subcollection: /users/{userId}/briefings/{briefingId}
+      match /briefings/{briefingId} {
+        allow get: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(briefingId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+
+        allow list: if isOwner(userId) &&
+          existing().ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(briefingId) &&
+          isValidUserBriefing(incoming(), userId) &&
+          incoming().createdAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if false;
+
+        allow delete: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(briefingId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+      }
+
+      // Subcollection: /users/{userId}/activities/{activityId}
+      match /activities/{activityId} {
+        allow get: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(activityId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+
+        allow list: if isOwner(userId) &&
+          existing().ownerId == request.auth.uid;
+
+        allow create: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(activityId) &&
+          isValidUserActivity(incoming(), userId) &&
+          incoming().createdAt == request.time &&
+          parentUserExists(userId);
+
+        allow update: if false;
+
+        allow delete: if isOwner(userId) &&
+          isValidId(userId) &&
+          isValidId(activityId) &&
+          existing().ownerId == request.auth.uid &&
+          parentUserExists(userId);
+      }
+    }
+  }
+}

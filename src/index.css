@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@layer base {
+  :root,
+  .dark {
+    /* Cinematic AI Website & Workspace Design Tokens */
+    --cinematic-bg-primary: #060606;
+    --cinematic-bg-secondary: #0B0B0C;
+    --cinematic-surface: #101012;
+    --cinematic-surface-elevated: #16161A;
+    --cinematic-text-primary: #F5F5F5;
+    --cinematic-text-secondary: #A1A1AA;
+    --cinematic-text-muted: #71717A;
+    --cinematic-border: rgba(255, 255, 255, 0.08);
+    --cinematic-border-strong: rgba(255, 255, 255, 0.16);
+    --cinematic-accent-amber: #FF9A35;
+    --cinematic-accent-orange: #FF6B1A;
+    --cinematic-accent-forest: #87A88C;
+
+    /* Mapped Workspace Tokens -> Cinematic Obsidian Theme */
+    --bg-canvas: #060606;
+    --bg-surface: #0B0B0C;
+    --bg-sage: #111114;
+    --bg-sage-muted: #18181C;
+    --text-primary: #F5F5F5;
+    --text-secondary: #A1A1AA;
+    --text-muted: #71717A;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.15);
+    --accent-primary: #FF6B1A;
+    --accent-primary-hover: #FF8533;
+    --accent-amber: #FF9A35;
+    --accent-forest: #87A88C;
+    --status-success: #4ADE80;
+    --status-warning: #FFA726;
+    --status-error: #F87171;
+  }
+
+  body {
+    background-color: var(--cinematic-bg-primary);
+    color: var(--cinematic-text-primary);
+    font-family: 'Space Grotesk', 'Inter', 'Manrope', 'Plus Jakarta Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+    color-scheme: dark;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Space Grotesk', 'Inter', 'Manrope', 'Plus Jakarta Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    text-wrap: balance;
+  }
+
+  code, pre, kbd, .font-mono, .tabular-nums {
+    font-family: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 2px solid var(--cinematic-accent-amber);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "SlothAI",
+  "description": "Work less. Automate more. Stay slow. A local-first open-weight AI productivity workspace for document summarization, task extraction, intelligent file organization, and daily briefings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
