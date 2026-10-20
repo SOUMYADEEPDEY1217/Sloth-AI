@@ -210,6 +210,12 @@ class OrganizeSuggestionsRequest(BaseModel):
     files: List[FileMetadataInput]
     permitted_filenames: Optional[List[str]] = None
     model: Optional[str] = None
+    allow_rule_fallback: bool = False
+
+
+class DocumentExtractRequest(BaseModel):
+    filename: str
+    content_base64: str
 
 
 class FileSuggestionItem(BaseModel):

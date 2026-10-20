@@ -35,6 +35,16 @@ function resolveApiUrl(backendUrl: string, apiPath: string): string {
   if (!base || base === '/api') {
     return apiPath;
   }
+  // If running on a deployed host (e.g. Vercel) and a local 127.0.0.1/localhost URL was saved in settings,
+  // route through the same-origin /api/(.*) Vercel service rewrite instead of calling localhost directly.
+  if (
+    typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1' &&
+    (base.includes('127.0.0.1') || base.includes('localhost'))
+  ) {
+    return apiPath;
+  }
   if (base.endsWith('/api') && apiPath.startsWith('/api/')) {
     return `${base}${apiPath.slice(4)}`;
   }

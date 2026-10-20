@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import logging
 from typing import Any, Dict, Optional
 
@@ -9,6 +10,7 @@ from .config import BackendConfig, get_config
 from .schemas import (
     BriefingRequest,
     ConnectionTestRequest,
+    DocumentExtractRequest,
     ExtractTasksRequest,
     ModelPullRequest,
     OrganizeApplyRequest,
@@ -153,8 +155,6 @@ class SlothAIBackendController:
             op.model_dump() if hasattr(op, "model_dump") else dict(op)  # type: ignore[arg-type]
             for op in req.operations
         ]
-        # Never allow client to expand beyond server-configured root unless server root is unset
-        # and even then, require explicit server configuration for real security.
         effective_root = self.config.allowed_organize_root
         return apply_approved_file_operations(
             operations=ops,
@@ -183,7 +183,7 @@ class SlothAIBackendController:
 
 # FastAPI app registration when FastAPI is installed
 try:
-    from fastapi import FastAPI, File, HTTPException, Query, Request, UploadFile
+    from fastapi import FastAPI, Query, Request
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse
 
@@ -281,19 +281,36 @@ def create_app(config: Optional[BackendConfig] = None) -> Any:
     async def api_organize_suggestions(
         req: OrganizeSuggestionsRequest,
     ) -> Dict[str, Any]:
-        return controller.post_organize_suggestions(req)
+        return controller.post_organize_suggestions(
+            req, allow_rule_fallback=bool(req.allow_rule_fallback)
+        )
 
     @app.post("/api/organize/apply")
     async def api_organize_apply(req: OrganizeApplyRequest) -> Dict[str, Any]:
         return controller.post_organize_apply(req)
 
     @app.post("/api/documents/extract-text")
-    async def api_extract_document_text(
-        file: UploadFile = File(...),
-    ) -> Dict[str, Any]:
-        content = await file.read(cfg.max_upload_bytes + 1)
+    async def api_extract_document_text(request: Request) -> Dict[str, Any]:
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            payload = await request.json()
+            doc_req = DocumentExtractRequest(**payload)
+            raw_bytes = (
+                base64.b64decode(doc_req.content_base64)
+                if doc_req.content_base64
+                else b""
+            )
+            return controller.post_extract_document_text(
+                filename=doc_req.filename, content_bytes=raw_bytes
+            )
+        form = await request.form()
+        upload = form.get("file")
+        if upload is None or not hasattr(upload, "read"):
+            raise ValueError("Missing file upload or JSON content_base64 payload.")
+        content = await upload.read(cfg.max_upload_bytes + 1)  # type: ignore[misc]
+        filename = getattr(upload, "filename", "") or ""
         return controller.post_extract_document_text(
-            filename=file.filename or "", content_bytes=content
+            filename=filename, content_bytes=content
         )
 
     @app.post("/api/connection/test")

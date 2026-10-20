@@ -7,7 +7,14 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const PORT = 3000;
-const EXPLICIT_FASTAPI_URL = (process.env.SLOTHAI_FASTAPI_URL || '').trim().replace(/\/+$/, '');
+
+/**
+ * Resolves the target FastAPI backend URL at runtime from Vercel's service binding
+ * (`process.env.BACKEND_URL`) or an explicitly configured `SLOTHAI_FASTAPI_URL`.
+ */
+function getBoundBackendUrl(): string {
+  return (process.env.BACKEND_URL || process.env.SLOTHAI_FASTAPI_URL || '').trim();
+}
 
 interface BridgeResponse {
   _status: number;
@@ -15,8 +22,8 @@ interface BridgeResponse {
 }
 
 /**
- * Executes the Python backend controller (backend/app/main.py) via backend/cli_bridge.py,
- * or forwards to an explicitly configured external FastAPI process if SLOTHAI_FASTAPI_URL is set.
+ * Forwards requests to the bound FastAPI `backend` service via `process.env.BACKEND_URL`
+ * when available, or falls back to the local Python controller stdio bridge (`backend/cli_bridge.py`).
  */
 async function invokePythonBackend(
   action: string,
@@ -24,11 +31,13 @@ async function invokePythonBackend(
   fastApiPath?: string,
   method: 'GET' | 'POST' = 'POST'
 ): Promise<BridgeResponse> {
-  if (EXPLICIT_FASTAPI_URL && fastApiPath) {
+  const boundBackendUrl = getBoundBackendUrl();
+  if (boundBackendUrl && fastApiPath) {
     try {
+      const targetUrl = new URL(fastApiPath, boundBackendUrl);
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1500);
-      const resp = await fetch(`${EXPLICIT_FASTAPI_URL}${fastApiPath}`, {
+      const timeout = setTimeout(() => controller.abort(), 95000);
+      const resp = await fetch(targetUrl, {
         method,
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: method === 'POST' ? JSON.stringify(payload) : undefined,
@@ -38,7 +47,7 @@ async function invokePythonBackend(
       const data = (await resp.json()) as Record<string, unknown>;
       return { _status: resp.status, body: data };
     } catch {
-      // Fall through to local Python controller bridge
+      // Fall through to local Python controller bridge if HTTP service is unreachable in local non-Vercel dev
     }
   }
 
@@ -173,7 +182,12 @@ async function startServer() {
 
   // 9. POST /api/documents/extract-text
   app.post('/api/documents/extract-text', async (req, res) => {
-    const out = await invokePythonBackend('extract_document_text', req.body || {});
+    const out = await invokePythonBackend(
+      'extract_document_text',
+      req.body || {},
+      '/api/documents/extract-text',
+      'POST'
+    );
     res.status(out._status).json(out.body);
   });
 
